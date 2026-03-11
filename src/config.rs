@@ -1,13 +1,8 @@
 use crate::storage::Bucket;
+use sea_orm::DatabaseConnection;
 
+#[derive(Clone)]
 pub struct Conns {
     pub bucket: Bucket,
-}
-
-impl Clone for Conns {
-    fn clone(&self) -> Self {
-        Self {
-            bucket: self.bucket.clone(),
-        }
-    }
+    pub db: DatabaseConnection,
 }
