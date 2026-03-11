@@ -23,3 +23,8 @@ pub async fn get_bucket(bucket_name: &str, region: Region) -> Result<Bucket, S3E
 
     Ok(bucket)
 }
+
+pub async fn upload_bytes(bucket: &Bucket, path: &str, bytes: &[u8]) -> Result<(), S3Error> {
+    bucket.put_object(path, bytes).await?;
+    Ok(())
+}
