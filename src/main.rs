@@ -2,7 +2,9 @@ use open_suite_rs::{config::Conns, get_router, storage::get_bucket};
 use s3::Region;
 use sea_orm::{ConnectOptions, Database};
 use std::env;
+use std::future::pending;
 use tokio::net::TcpListener;
+use tokio::signal;
 
 #[tokio::main]
 async fn main() {
@@ -26,6 +28,33 @@ async fn main() {
         .expect("failed to bind TCP listener on 0.0.0.0:3000");
 
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .expect("axum server failed");
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C signal handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    println!("shutdown signal received, terminating gracefully");
 }
