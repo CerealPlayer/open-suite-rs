@@ -1,4 +1,5 @@
-use open_suite_rs::{config::Conns, get_router, storage::get_bucket};
+use open_suite_rs::router::state::Conns;
+use open_suite_rs::storage::get_bucket;
 use s3::Region;
 use sea_orm::{ConnectOptions, Database};
 use std::env;
@@ -22,7 +23,7 @@ async fn main() {
         .expect("failed to connect to postgres");
 
     let bucket = get_bucket("test", region).await.unwrap();
-    let app = get_router().with_state(Conns { bucket, db });
+    let app = open_suite_rs::router::router().with_state(Conns { bucket, db });
     let listener = TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("failed to bind TCP listener on 0.0.0.0:3000");

@@ -9,12 +9,12 @@ use serde::Serialize;
 use std::path::Path as StdPath;
 use uuid::Uuid;
 
-use crate::{config::Conns, entities::document, storage::upload_bytes};
+use crate::{entities::document, router::state::Conns, storage::upload_bytes};
 
 const DOCX_MIME_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-pub fn router() -> Router<Conns> {
+pub fn documents_router() -> Router<Conns> {
     Router::new()
         .route("/", get(list_documents))
         .route("/upload", post(upload))
