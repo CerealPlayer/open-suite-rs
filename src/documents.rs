@@ -2,9 +2,9 @@ use axum::{
     Json, Router,
     extract::{Multipart, State},
     http::StatusCode,
-    routing::post,
+    routing::{get, post},
 };
-use sea_orm::{ActiveModelTrait, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use serde::Serialize;
 use std::path::Path;
 use uuid::Uuid;
@@ -12,7 +12,9 @@ use uuid::Uuid;
 use crate::{config::Conns, entities::document, storage::upload_bytes};
 
 pub fn router() -> Router<Conns> {
-    Router::new().route("/upload", post(upload))
+    Router::new()
+        .route("/", get(list_documents))
+        .route("/upload", post(upload))
 }
 
 #[derive(Serialize)]
@@ -22,8 +24,24 @@ struct UploadDocumentResponse {
 }
 
 #[derive(Serialize)]
+struct ListDocumentsResponse {
+    documents: Vec<document::Model>,
+}
+
+#[derive(Serialize)]
 struct ErrorResponse {
     error: String,
+}
+
+async fn list_documents(
+    State(conns): State<Conns>,
+) -> Result<Json<ListDocumentsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let documents = document::Entity::find()
+        .all(&conns.db)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?;
+
+    Ok(Json(ListDocumentsResponse { documents }))
 }
 
 async fn upload(
