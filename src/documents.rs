@@ -1,12 +1,12 @@
 use axum::{
     Json, Router,
-    extract::{Multipart, State},
+    extract::{Multipart, Path, State},
     http::StatusCode,
     routing::{get, post},
 };
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use serde::Serialize;
-use std::path::Path;
+use std::path::Path as StdPath;
 use uuid::Uuid;
 
 use crate::{config::Conns, entities::document, storage::upload_bytes};
@@ -18,6 +18,7 @@ pub fn router() -> Router<Conns> {
     Router::new()
         .route("/", get(list_documents))
         .route("/upload", post(upload))
+        .route("/{documentId}", get(get_document_details))
 }
 
 #[derive(Serialize)]
@@ -26,10 +27,7 @@ struct UploadDocumentResponse {
     path: String,
 }
 
-#[derive(Serialize)]
-struct ListDocumentsResponse {
-    documents: Vec<document::Model>,
-}
+type ListDocumentsResponse = Vec<document::Model>;
 
 #[derive(Serialize)]
 struct ErrorResponse {
@@ -44,7 +42,7 @@ async fn list_documents(
         .await
         .map_err(|err| internal_error(err.to_string()))?;
 
-    Ok(Json(ListDocumentsResponse { documents }))
+    Ok(Json(documents))
 }
 
 async fn upload(
@@ -61,7 +59,7 @@ async fn upload(
         .map_err(|err| bad_request(err.to_string()))?
     {
         if let Some(name) = field.file_name() {
-            let normalized_name = Path::new(name)
+            let normalized_name = StdPath::new(name)
                 .file_name()
                 .and_then(|value| value.to_str())
                 .filter(|value| !value.is_empty())
@@ -117,9 +115,31 @@ async fn upload(
     ))
 }
 
+async fn get_document_details(
+    State(conns): State<Conns>,
+    Path(document_id): Path<Uuid>,
+) -> Result<Json<document::Model>, (StatusCode, Json<ErrorResponse>)> {
+    let document = document::Entity::find_by_id(document_id)
+        .one(&conns.db)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+        .ok_or_else(|| not_found(format!("document {document_id} was not found")))?;
+
+    Ok(Json(document))
+}
+
 fn bad_request(message: impl Into<String>) -> (StatusCode, Json<ErrorResponse>) {
     (
         StatusCode::BAD_REQUEST,
+        Json(ErrorResponse {
+            error: message.into(),
+        }),
+    )
+}
+
+fn not_found(message: impl Into<String>) -> (StatusCode, Json<ErrorResponse>) {
+    (
+        StatusCode::NOT_FOUND,
         Json(ErrorResponse {
             error: message.into(),
         }),
