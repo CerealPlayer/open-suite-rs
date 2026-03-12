@@ -11,6 +11,9 @@ use uuid::Uuid;
 
 use crate::{config::Conns, entities::document, storage::upload_bytes};
 
+const DOCX_MIME_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
 pub fn router() -> Router<Conns> {
     Router::new()
         .route("/", get(list_documents))
@@ -49,6 +52,7 @@ async fn upload(
     mut multipart: Multipart,
 ) -> Result<(StatusCode, Json<UploadDocumentResponse>), (StatusCode, Json<ErrorResponse>)> {
     let mut file_name: Option<String> = None;
+    let mut file_content_type: Option<String> = None;
     let mut file_bytes: Option<Vec<u8>> = None;
 
     while let Some(field) = multipart
@@ -57,7 +61,15 @@ async fn upload(
         .map_err(|err| bad_request(err.to_string()))?
     {
         if let Some(name) = field.file_name() {
-            file_name = Some(name.to_owned());
+            let normalized_name = Path::new(name)
+                .file_name()
+                .and_then(|value| value.to_str())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| bad_request("uploaded file name is invalid"))?
+                .to_owned();
+            let content_type = field.content_type().map(|value| value.to_owned());
+            file_name = Some(normalized_name);
+            file_content_type = content_type;
             file_bytes = Some(
                 field
                     .bytes()
@@ -71,17 +83,16 @@ async fn upload(
 
     let file_name =
         file_name.ok_or_else(|| bad_request("multipart payload must include a file"))?;
+    let file_content_type = file_content_type
+        .ok_or_else(|| bad_request("multipart payload must include a file content type"))?;
     let file_bytes =
         file_bytes.ok_or_else(|| bad_request("multipart payload must include a file"))?;
+    if !file_content_type.eq_ignore_ascii_case(DOCX_MIME_TYPE) {
+        return Err(bad_request("only DOCX MIME type files are allowed"));
+    }
 
     let object_id = Uuid::new_v4();
-    let extension = Path::new(&file_name)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .filter(|ext| !ext.is_empty())
-        .map(|ext| format!(".{ext}"))
-        .unwrap_or_default();
-    let object_path = format!("documents/{object_id}{extension}");
+    let object_path = format!("documents/{object_id}.docx");
 
     upload_bytes(&conns.bucket, &object_path, &file_bytes)
         .await
@@ -90,6 +101,7 @@ async fn upload(
     let inserted = document::ActiveModel {
         id: Set(object_id),
         path: Set(object_path.clone()),
+        file_name: Set(file_name),
         ..Default::default()
     }
     .insert(&conns.db)

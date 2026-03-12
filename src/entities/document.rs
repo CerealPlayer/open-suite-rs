@@ -8,6 +8,8 @@ pub struct Model {
     pub id: Uuid,
     #[sea_orm(column_type = "Text")]
     pub path: String,
+    #[sea_orm(column_type = "Text")]
+    pub file_name: String,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub deleted_at: Option<DateTime>,
