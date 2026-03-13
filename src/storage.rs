@@ -28,3 +28,8 @@ pub async fn upload_bytes(bucket: &Bucket, path: &str, bytes: &[u8]) -> Result<(
     bucket.put_object(path, bytes).await?;
     Ok(())
 }
+
+pub async fn download_bytes(bucket: &Bucket, path: &str) -> Result<Vec<u8>, S3Error> {
+    let response = bucket.get_object(path).await?;
+    Ok(response.bytes().to_vec())
+}

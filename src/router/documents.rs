@@ -9,7 +9,13 @@ use serde::Serialize;
 use std::path::Path as StdPath;
 use uuid::Uuid;
 
-use crate::{entities::document, router::state::Conns, storage::upload_bytes};
+use crate::{
+    entities::document,
+    prosemirror::ProseMirrorDoc,
+    prosemirror::parse_docx_to_prosemirror,
+    router::state::Conns,
+    storage::{download_bytes, upload_bytes},
+};
 
 const DOCX_MIME_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -28,6 +34,12 @@ struct UploadDocumentResponse {
 }
 
 type ListDocumentsResponse = Vec<document::Model>;
+
+#[derive(Serialize)]
+struct DocumentDetailsResponse {
+    document: document::Model,
+    content: ProseMirrorDoc,
+}
 
 #[derive(Serialize)]
 struct ErrorResponse {
@@ -118,14 +130,20 @@ async fn upload(
 async fn get_document_details(
     State(conns): State<Conns>,
     Path(document_id): Path<Uuid>,
-) -> Result<Json<document::Model>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<DocumentDetailsResponse>, (StatusCode, Json<ErrorResponse>)> {
     let document = document::Entity::find_by_id(document_id)
         .one(&conns.db)
         .await
         .map_err(|err| internal_error(err.to_string()))?
         .ok_or_else(|| not_found(format!("document {document_id} was not found")))?;
 
-    Ok(Json(document))
+    let docx_bytes = download_bytes(&conns.bucket, &document.path)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?;
+    let content =
+        parse_docx_to_prosemirror(&docx_bytes).map_err(|err| internal_error(err.to_string()))?;
+
+    Ok(Json(DocumentDetailsResponse { document, content }))
 }
 
 fn bad_request(message: impl Into<String>) -> (StatusCode, Json<ErrorResponse>) {
