@@ -1,5 +1,6 @@
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
+use tower_http::cors::CorsLayer;
 
 use crate::router::documents::documents_router;
 use state::Conns;
@@ -11,6 +12,7 @@ pub fn router() -> Router<Conns> {
     Router::new()
         .route("/health", get(health))
         .nest("/documents", documents_router())
+        .layer(CorsLayer::permissive())
 }
 
 #[derive(Serialize)]

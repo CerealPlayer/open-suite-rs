@@ -97,6 +97,8 @@ async fn upload(
         .ok_or_else(|| bad_request("multipart payload must include a file content type"))?;
     let file_bytes =
         file_bytes.ok_or_else(|| bad_request("multipart payload must include a file"))?;
+    let file_size = i32::try_from(file_bytes.len())
+        .map_err(|_| bad_request("uploaded file is too large to store size as i32"))?;
     if !file_content_type.eq_ignore_ascii_case(DOCX_MIME_TYPE) {
         return Err(bad_request("only DOCX MIME type files are allowed"));
     }
@@ -112,6 +114,7 @@ async fn upload(
         id: Set(object_id),
         path: Set(object_path.clone()),
         file_name: Set(file_name),
+        size: Set(file_size),
         ..Default::default()
     }
     .insert(&conns.db)
