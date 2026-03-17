@@ -80,6 +80,7 @@ fn paragraph_to_node(paragraph: &Paragraph) -> ProseMirrorNode {
 }
 
 fn run_to_nodes(run: &Run) -> Vec<ProseMirrorNode> {
+    println!("new run: {:?}", run);
     let marks = run_marks(run);
     let mut content = Vec::new();
 
