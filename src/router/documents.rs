@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use docx_rs::Docx;
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use serde::Serialize;
 use std::path::Path as StdPath;
@@ -39,6 +40,7 @@ type ListDocumentsResponse = Vec<document::Model>;
 struct DocumentDetailsResponse {
     document: document::Model,
     content: ProseMirrorDoc,
+    original: Docx,
 }
 
 #[derive(Serialize)]
@@ -143,10 +145,14 @@ async fn get_document_details(
     let docx_bytes = download_bytes(&conns.bucket, &document.path)
         .await
         .map_err(|err| internal_error(err.to_string()))?;
-    let content =
+    let (content, docx) =
         parse_docx_to_prosemirror(&docx_bytes).map_err(|err| internal_error(err.to_string()))?;
 
-    Ok(Json(DocumentDetailsResponse { document, content }))
+    Ok(Json(DocumentDetailsResponse {
+        document,
+        content,
+        original: docx,
+    }))
 }
 
 fn bad_request(message: impl Into<String>) -> (StatusCode, Json<ErrorResponse>) {
