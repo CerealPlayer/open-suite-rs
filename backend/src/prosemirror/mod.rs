@@ -10,6 +10,7 @@ use crate::prosemirror::{
     helpers::unsupported_block_node,
     list::{consume_list_block, paragraph_list_kind},
     paragraph::paragraph_to_node,
+    styles::get_global_styles,
 };
 
 mod heading;
@@ -19,6 +20,7 @@ mod list;
 mod marks;
 mod paragraph;
 mod run;
+mod styles;
 mod text;
 
 #[derive(Debug, Clone, Serialize)]
@@ -59,6 +61,7 @@ impl std::error::Error for ParseError {}
 
 pub fn parse_docx_to_prosemirror(bytes: &[u8]) -> Result<(ProseMirrorDoc, Docx), ParseError> {
     let docx = read_docx(bytes).map_err(ParseError::Read)?;
+    get_global_styles(&docx);
     Ok((from_document(&docx.document), docx))
 }
 
