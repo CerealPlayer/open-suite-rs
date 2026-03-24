@@ -15,25 +15,42 @@ pub struct ProseMirrorMark {
 pub fn run_marks(run: &Run) -> Vec<ProseMirrorMark> {
     let mut marks = Vec::new();
 
-    if run.run_property.bold.is_some() {
+    if run.run_property.bold.as_ref().is_some_and(|b| b.val) {
         marks.push(mark("bold"));
     }
-    if run.run_property.italic.is_some() {
+    if run.run_property.italic.as_ref().is_some_and(|i| i.val) {
         marks.push(mark("italic"));
     }
-    if run.run_property.underline.is_some() {
+    if run
+        .run_property
+        .underline
+        .as_ref()
+        .is_some_and(|u| !u.val.is_empty())
+    {
         marks.push(mark("underline"));
     }
-    if run.run_property.strike.is_some() || run.run_property.dstrike.is_some() {
+    if run.run_property.strike.as_ref().is_some_and(|s| s.val)
+        || run.run_property.dstrike.as_ref().is_some_and(|d| d.val)
+    {
         marks.push(mark("strike"));
     }
-    if run.run_property.highlight.is_some() {
+    if run
+        .run_property
+        .highlight
+        .as_ref()
+        .is_some_and(|h| !h.val.is_empty())
+    {
         marks.push(mark_with_attrs(
             "highlight",
             vec![("source", json!("docx_highlight"))],
         ));
     }
-    if run.run_property.color.is_some() {
+    if run
+        .run_property
+        .color
+        .as_ref()
+        .is_some_and(|c| !c.val.is_empty())
+    {
         marks.push(mark_with_attrs(
             "text_color",
             vec![("source", json!("docx_color"))],
